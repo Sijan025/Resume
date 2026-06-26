@@ -1,2 +1,1276 @@
-# Resume
-used new glm 5.2 model fro 3d background with cursor tracker 
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sijan Bastola — 3D Portfolio CV</title>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700;900&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,700;1,400&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        bg: '#070a0e',
+                        fg: '#eae6df',
+                        muted: '#7d8a99',
+                        accent: '#22c55e',
+                        'accent-dim': '#166534',
+                        'accent-glow': '#4ade80',
+                        card: 'rgba(12,20,30,0.88)',
+                    },
+                    fontFamily: {
+                        display: ['Playfair Display','serif'],
+                        body: ['DM Sans','sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+            "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+        }
+    }
+    </script>
+    <style>
+        :root {
+            --accent: #22c55e;
+            --accent-dim: #166534;
+            --accent-glow: #4ade80;
+            --bg: #070a0e;
+            --fg: #eae6df;
+            --muted: #7d8a99;
+            --card-bg: rgba(12,20,30,0.88);
+            --border: rgba(34,197,94,0.12);
+            --cursor-blue: #3b82f6;
+            --cursor-glow: rgba(59,130,246,0.5);
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html { scroll-behavior: smooth; }
+        body {
+            font-family: 'DM Sans', sans-serif;
+            background: var(--bg);
+            color: var(--fg);
+            overflow-x: hidden;
+        }
+
+        /* Custom Cursor — hidden on touch devices */
+        @media (hover: hover) and (pointer: fine) {
+            body.custom-cursor-active * { cursor: none !important; }
+            body.custom-cursor-active a, body.custom-cursor-active button,
+            body.custom-cursor-active input, body.custom-cursor-active textarea,
+            body.custom-cursor-active .cert-card, body.custom-cursor-active .glass-card,
+            body.custom-cursor-active .interest-card { cursor: none !important; }
+        }
+
+        .cursor-dot {
+            position: fixed; z-index: 10000;
+            width: 10px; height: 10px;
+            background: var(--cursor-blue);
+            border-radius: 50%;
+            pointer-events: none;
+            transform: translate(-50%, -50%);
+            transition: width 0.25s ease, height 0.25s ease, background 0.25s ease, box-shadow 0.25s ease;
+            box-shadow: 0 0 12px var(--cursor-glow), 0 0 4px var(--cursor-blue);
+            will-change: left, top;
+        }
+        .cursor-dot.hovering {
+            width: 22px; height: 22px;
+            background: rgba(59,130,246,0.35);
+            box-shadow: 0 0 20px var(--cursor-glow), 0 0 6px var(--cursor-blue);
+        }
+        .cursor-dot.clicking {
+            width: 6px; height: 6px;
+            background: #60a5fa;
+        }
+
+        .trail-dot {
+            position: fixed; z-index: 9999;
+            border-radius: 50%;
+            pointer-events: none;
+            transform: translate(-50%, -50%);
+            background: var(--cursor-blue);
+            animation: trailFade 1s ease-out forwards;
+            will-change: opacity, transform;
+        }
+        @keyframes trailFade {
+            0% { opacity: 0.5; transform: translate(-50%, -50%) scale(1); }
+            100% { opacity: 0; transform: translate(-50%, -50%) scale(0.15); }
+        }
+
+        ::-webkit-scrollbar { width: 5px; }
+        ::-webkit-scrollbar-track { background: var(--bg); }
+        ::-webkit-scrollbar-thumb { background: var(--accent); border-radius: 3px; }
+
+        #loader {
+            position: fixed; inset: 0; z-index: 9999;
+            background: var(--bg);
+            display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 1.2rem;
+            transition: opacity 0.6s ease, visibility 0.6s ease;
+        }
+        #loader.hidden { opacity: 0; visibility: hidden; pointer-events: none; }
+        .loader-ring {
+            width: 50px; height: 50px;
+            border: 2.5px solid rgba(34,197,94,0.12);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin 0.9s linear infinite;
+        }
+        .loader-text { color: var(--muted); font-size: 0.8rem; letter-spacing: 0.15em; text-transform: uppercase; }
+
+        #scroll-progress {
+            position: fixed; top: 0; left: 0; height: 3px; z-index: 1001;
+            background: linear-gradient(90deg, var(--accent), var(--accent-glow));
+            width: 0%; transition: width 0.1s linear;
+        }
+        #three-canvas {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            z-index: 0; pointer-events: none;
+        }
+
+        #nav {
+            position: fixed; top: 0; left: 0; right: 0; z-index: 1000;
+            padding: 0.9rem 2rem;
+            backdrop-filter: blur(24px);
+            background: rgba(7,10,14,0.75);
+            border-bottom: 1px solid var(--border);
+            transition: transform 0.35s ease;
+        }
+        #nav.nav-hidden { transform: translateY(-100%); }
+        .nav-link {
+            color: var(--muted); font-size: 0.82rem; font-weight: 500;
+            text-decoration: none; padding: 0.35rem 0; position: relative;
+            transition: color 0.3s ease;
+        }
+        .nav-link::after {
+            content: ''; position: absolute; bottom: 0; left: 0;
+            width: 0; height: 2px; background: var(--accent);
+            transition: width 0.3s ease;
+        }
+        .nav-link:hover, .nav-link.active { color: var(--accent); }
+        .nav-link:hover::after, .nav-link.active::after { width: 100%; }
+
+        .perspective-wrap { perspective: 1200px; }
+        .cv-section {
+            transform-style: preserve-3d;
+            opacity: 0;
+            transform: translateY(50px) rotateX(5deg);
+            transition: opacity 0.85s cubic-bezier(0.16,1,0.3,1),
+                        transform 0.85s cubic-bezier(0.16,1,0.3,1);
+        }
+        .cv-section.visible { opacity: 1; transform: translateY(0) rotateX(0deg); }
+
+        .cube-container { perspective: 800px; width: 200px; height: 200px; }
+        .cube {
+            width: 100%; height: 100%; position: relative;
+            transform-style: preserve-3d;
+            animation: cubeRotate 22s linear infinite;
+        }
+        .cube .face {
+            position: absolute; width: 200px; height: 200px;
+            border: 1.5px solid rgba(34,197,94,0.3);
+            background: rgba(34,197,94,0.015);
+        }
+        .cube .front  { transform: translateZ(100px); }
+        .cube .back   { transform: rotateY(180deg) translateZ(100px); }
+        .cube .left   { transform: rotateY(-90deg) translateZ(100px); }
+        .cube .right  { transform: rotateY(90deg) translateZ(100px); }
+        .cube .top    { transform: rotateX(90deg) translateZ(100px); }
+        .cube .bottom { transform: rotateX(-90deg) translateZ(100px); }
+
+        .glass-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            backdrop-filter: blur(14px);
+            border-radius: 16px;
+            transition: transform 0.4s ease, border-color 0.4s ease, box-shadow 0.4s ease;
+        }
+        .glass-card:hover {
+            transform: translateY(-3px);
+            border-color: rgba(34,197,94,0.3);
+            box-shadow: 0 16px 50px rgba(34,197,94,0.06);
+        }
+
+        .skill-bar-track {
+            height: 5px; background: rgba(34,197,94,0.08);
+            border-radius: 3px; overflow: hidden;
+        }
+        .skill-bar-fill {
+            height: 100%; border-radius: 3px;
+            background: linear-gradient(90deg, var(--accent-dim), var(--accent));
+            width: 0%; transition: width 1.2s cubic-bezier(0.16,1,0.3,1);
+        }
+
+        .timeline { position: relative; padding-left: 36px; }
+        .timeline::before {
+            content: ''; position: absolute; left: 13px; top: 0; bottom: 0;
+            width: 2px; background: linear-gradient(to bottom, var(--accent), rgba(34,197,94,0.05));
+        }
+        .timeline-item { position: relative; margin-bottom: 2.5rem; }
+        .timeline-dot {
+            position: absolute; left: -29px; top: 8px;
+            width: 10px; height: 10px; border-radius: 50%;
+            background: var(--accent);
+            box-shadow: 0 0 16px rgba(34,197,94,0.5);
+        }
+
+        .cert-card { perspective: 1000px; height: 300px; }
+        .cert-inner {
+            position: relative; width: 100%; height: 100%;
+            transform-style: preserve-3d;
+            transition: transform 0.8s cubic-bezier(0.4,0,0.2,1);
+        }
+        .cert-card:hover .cert-inner { transform: rotateY(180deg); }
+        .cert-front, .cert-back {
+            position: absolute; width: 100%; height: 100%;
+            backface-visibility: hidden; border-radius: 16px;
+            padding: 2rem; display: flex; flex-direction: column;
+            justify-content: center; align-items: center; text-align: center;
+        }
+        .cert-front {
+            background: var(--card-bg); border: 1px solid var(--border);
+            backdrop-filter: blur(14px);
+        }
+        .cert-back {
+            background: linear-gradient(135deg, rgba(34,197,94,0.1), rgba(12,20,30,0.97));
+            border: 1px solid rgba(34,197,94,0.25);
+            transform: rotateY(180deg);
+        }
+        .cert-icon {
+            width: 60px; height: 60px; border-radius: 14px;
+            background: rgba(34,197,94,0.08); border: 1px solid rgba(34,197,94,0.18);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.4rem; color: var(--accent); margin-bottom: 1.1rem;
+        }
+
+        .toast {
+            position: fixed; bottom: 2rem; right: 2rem; z-index: 9998;
+            padding: 1rem 1.5rem; border-radius: 12px;
+            background: rgba(12,20,30,0.96); border: 1px solid var(--border);
+            backdrop-filter: blur(14px); color: var(--fg);
+            font-size: 0.88rem; transform: translateY(100px); opacity: 0;
+            transition: transform 0.4s cubic-bezier(0.16,1,0.3,1), opacity 0.4s ease;
+            max-width: 380px;
+        }
+        .toast.show { transform: translateY(0); opacity: 1; }
+        .toast-success { border-left: 3px solid var(--accent); }
+        .toast-info { border-left: 3px solid var(--accent-glow); }
+
+        .form-input {
+            width: 100%; padding: 0.8rem 1rem;
+            background: rgba(12,20,30,0.6); border: 1px solid var(--border);
+            border-radius: 10px; color: var(--fg); font-family: 'DM Sans', sans-serif;
+            font-size: 0.92rem; outline: none;
+            transition: border-color 0.3s ease, box-shadow 0.3s ease;
+        }
+        .form-input:focus {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px rgba(34,197,94,0.1);
+        }
+        .form-input::placeholder { color: var(--muted); }
+
+        .btn-primary {
+            display: inline-flex; align-items: center; gap: 0.5rem;
+            padding: 0.8rem 1.8rem; border-radius: 10px; font-weight: 600;
+            background: linear-gradient(135deg, var(--accent-dim), var(--accent));
+            color: #fff; border: none; cursor: pointer; font-size: 0.92rem;
+            font-family: 'DM Sans', sans-serif;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 28px rgba(34,197,94,0.25);
+        }
+        .btn-outline {
+            display: inline-flex; align-items: center; gap: 0.5rem;
+            padding: 0.8rem 1.8rem; border-radius: 10px; font-weight: 600;
+            background: transparent; color: var(--accent);
+            border: 1.5px solid var(--accent); cursor: pointer; font-size: 0.92rem;
+            font-family: 'DM Sans', sans-serif;
+            transition: transform 0.3s ease, background 0.3s ease;
+        }
+        .btn-outline:hover {
+            transform: translateY(-2px);
+            background: rgba(34,197,94,0.08);
+        }
+
+        .stat-number {
+            font-family: 'Playfair Display', serif;
+            font-size: 2.2rem; font-weight: 900;
+            background: linear-gradient(135deg, var(--accent), var(--accent-glow));
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .mobile-menu {
+            position: fixed; inset: 0; z-index: 999;
+            background: rgba(7,10,14,0.98); backdrop-filter: blur(24px);
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            gap: 2rem; transform: translateX(100%); transition: transform 0.4s ease;
+        }
+        .mobile-menu.open { transform: translateX(0); }
+        .mobile-menu a {
+            font-family: 'Playfair Display', serif; font-size: 1.6rem;
+            color: var(--fg); text-decoration: none; transition: color 0.3s ease;
+        }
+        .mobile-menu a:hover { color: var(--accent); }
+
+        .interest-card {
+            background: var(--card-bg); border: 1px solid var(--border);
+            border-radius: 14px; padding: 1.5rem; text-align: center;
+            transition: transform 0.3s ease, border-color 0.3s ease;
+        }
+        .interest-card:hover {
+            transform: translateY(-3px);
+            border-color: rgba(34,197,94,0.3);
+        }
+        .interest-icon {
+            width: 48px; height: 48px; border-radius: 12px;
+            background: rgba(34,197,94,0.08); border: 1px solid rgba(34,197,94,0.15);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.2rem; color: var(--accent); margin: 0 auto 0.8rem;
+        }
+
+        .section-label {
+            color: var(--accent); font-weight: 600; letter-spacing: 0.2em;
+            text-transform: uppercase; font-size: 0.78rem; margin-bottom: 0.6rem;
+        }
+        .section-title {
+            font-family: 'Playfair Display', serif;
+            font-size: clamp(2rem, 5vw, 3rem); font-weight: 900; margin-bottom: 3rem;
+        }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+        @keyframes cubeRotate {
+            0%   { transform: rotateX(0deg) rotateY(0deg) rotateZ(0deg); }
+            100% { transform: rotateX(360deg) rotateY(360deg) rotateZ(180deg); }
+        }
+        @keyframes float {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-12px); }
+        }
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(28px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-float { animation: float 4s ease-in-out infinite; }
+
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after {
+                animation-duration: 0.01ms !important;
+                transition-duration: 0.01ms !important;
+            }
+        }
+        @media (max-width: 768px) {
+            .cube-container { width: 140px; height: 140px; }
+            .cube .face { width: 140px; height: 140px; }
+            .cube .front  { transform: translateZ(70px); }
+            .cube .back   { transform: rotateY(180deg) translateZ(70px); }
+            .cube .left   { transform: rotateY(-90deg) translateZ(70px); }
+            .cube .right  { transform: rotateY(90deg) translateZ(70px); }
+            .cube .top    { transform: rotateX(90deg) translateZ(70px); }
+            .cube .bottom { transform: rotateX(-90deg) translateZ(70px); }
+            .stat-number { font-size: 1.6rem; }
+            .cert-card { height: 280px; }
+            #nav { padding: 0.75rem 1.2rem; }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="loader">
+        <div class="loader-ring"></div>
+        <div class="loader-text">Loading Portfolio</div>
+    </div>
+
+    <div id="scroll-progress"></div>
+    <div id="three-canvas"></div>
+
+    <div class="mobile-menu" id="mobileMenu">
+        <a href="#hero" onclick="closeMobile()">Home</a>
+        <a href="#about" onclick="closeMobile()">About</a>
+        <a href="#skills" onclick="closeMobile()">Skills</a>
+        <a href="#experience" onclick="closeMobile()">Projects</a>
+        <a href="#education" onclick="closeMobile()">Education</a>
+        <a href="#certificates" onclick="closeMobile()">Certificates</a>
+        <a href="#interests" onclick="closeMobile()">Interests</a>
+        <a href="#contact" onclick="closeMobile()">Contact</a>
+    </div>
+
+    <nav id="nav">
+        <div class="max-w-6xl mx-auto flex items-center justify-between">
+            <a href="#hero" class="font-display text-xl font-bold text-accent tracking-wider">SB</a>
+            <div class="hidden md:flex items-center gap-7">
+                <a href="#about" class="nav-link">About</a>
+                <a href="#skills" class="nav-link">Skills</a>
+                <a href="#experience" class="nav-link">Projects</a>
+                <a href="#education" class="nav-link">Education</a>
+                <a href="#certificates" class="nav-link">Certificates</a>
+                <a href="#interests" class="nav-link">Interests</a>
+                <a href="#contact" class="nav-link">Contact</a>
+            </div>
+            <button class="md:hidden text-fg text-xl" onclick="toggleMobile()" aria-label="Toggle menu">
+                <i class="fas fa-bars" id="menuIcon"></i>
+            </button>
+        </div>
+    </nav>
+
+    <main class="relative z-10 perspective-wrap">
+
+        <!-- Hero -->
+        <section id="hero" class="cv-section min-h-screen flex items-center justify-center px-6 pt-20">
+            <div class="max-w-6xl mx-auto flex flex-col-reverse lg:flex-row items-center gap-10 lg:gap-20">
+                <div class="flex-1 text-center lg:text-left">
+                    <p class="text-accent font-semibold tracking-[0.25em] uppercase text-xs mb-4" style="animation: fadeInUp 0.8s 0.3s both;">BSc CSIT Student &amp; Aspiring AI Engineer</p>
+                    <h1 class="font-display text-5xl sm:text-6xl lg:text-7xl font-900 leading-[1.05] mb-5" style="animation: fadeInUp 0.8s 0.5s both;">
+                        Sijan<br><span class="text-accent">Bastola</span>
+                    </h1>
+                    <p class="text-muted text-base sm:text-lg max-w-lg mx-auto lg:mx-0 mb-8 leading-relaxed" style="animation: fadeInUp 0.8s 0.7s both;">
+                        First-year CSIT student from Pokhara, Nepal — building a solid foundation in AI, software development, and emerging technologies through hands-on projects and continuous learning.
+                    </p>
+                    <div class="flex flex-wrap gap-3 justify-center lg:justify-start" style="animation: fadeInUp 0.8s 0.9s both;">
+                        <a href="#certificates" class="btn-primary"><i class="fas fa-award"></i> View Certificates</a>
+                        <a href="#contact" class="btn-outline"><i class="fas fa-envelope"></i> Get In Touch</a>
+                    </div>
+                    <div class="flex gap-5 mt-8 justify-center lg:justify-start" style="animation: fadeInUp 0.8s 1.1s both;">
+                        <a href="https://linkedin.com/in/sijan-bastola" target="_blank" class="text-muted hover:text-accent transition-colors text-lg" aria-label="LinkedIn"><i class="fab fa-linkedin-in"></i></a>
+                        <a href="https://github.com/Sijan025" target="_blank" class="text-muted hover:text-accent transition-colors text-lg" aria-label="GitHub"><i class="fab fa-github"></i></a>
+                        <a href="mailto:sijanbaastola5@gmail.com" class="text-muted hover:text-accent transition-colors text-lg" aria-label="Email"><i class="fas fa-envelope"></i></a>
+                    </div>
+                </div>
+                <div class="flex-shrink-0 animate-float">
+                    <div class="cube-container">
+                        <div class="cube">
+                            <div class="face front"></div>
+                            <div class="face back"></div>
+                            <div class="face left"></div>
+                            <div class="face right"></div>
+                            <div class="face top"></div>
+                            <div class="face bottom"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- About -->
+        <section id="about" class="cv-section py-24 px-6">
+            <div class="max-w-6xl mx-auto">
+                <p class="section-label">Get To Know Me</p>
+                <h2 class="section-title">About Me</h2>
+                <div class="flex flex-col lg:flex-row gap-10">
+                    <div class="glass-card p-7 sm:p-8 flex-1">
+                        <div class="flex flex-col sm:flex-row gap-7">
+                            <div class="flex-shrink-0 mx-auto sm:mx-0">
+                                <div class="w-32 h-32 rounded-2xl overflow-hidden border-2 border-accent/20">
+                                    <img src="https://picsum.photos/seed/sijancv/300/300.jpg" alt="Sijan Bastola" class="w-full h-full object-cover">
+                                </div>
+                            </div>
+                            <div>
+                                <h3 class="font-display text-2xl font-bold mb-3">Sijan Bastola</h3>
+                                <p class="text-muted leading-relaxed mb-3 text-sm sm:text-base">
+                                    I'm a highly motivated first-year BSc CSIT student at Soch College of IT, Tribhuvan University, with a deep-rooted passion for technology and innovation. My focus areas span Artificial Intelligence, software development, web technologies, and cybersecurity.
+                                </p>
+                                <p class="text-muted leading-relaxed text-sm sm:text-base">
+                                    Beyond the classroom, I actively build personal projects, attend technical workshops, and contribute to the local tech community through Code For Change Pokhara. I've already developed and deployed a personal portfolio website and am currently working on Python-based AI projects. I believe in learning by doing — every line of code I write brings me closer to becoming a proficient software engineer.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-3 lg:w-64 flex-shrink-0">
+                        <div class="glass-card p-5 text-center">
+                            <div class="stat-number" data-count="5">0</div>
+                            <p class="text-muted text-xs mt-1">Projects Built</p>
+                        </div>
+                        <div class="glass-card p-5 text-center">
+                            <div class="stat-number" data-count="6">0</div>
+                            <p class="text-muted text-xs mt-1">Certifications</p>
+                        </div>
+                        <div class="glass-card p-5 text-center">
+                            <div class="stat-number" data-count="4">0</div>
+                            <p class="text-muted text-xs mt-1">Languages Known</p>
+                        </div>
+                        <div class="glass-card p-5 text-center">
+                            <div class="stat-number" data-count="3">0</div>
+                            <p class="text-muted text-xs mt-1">Workshops</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Skills -->
+        <section id="skills" class="cv-section py-24 px-6">
+            <div class="max-w-6xl mx-auto">
+                <p class="section-label">What I Know</p>
+                <h2 class="section-title">Technical Skills</h2>
+                <div class="grid md:grid-cols-2 gap-6">
+                    <div class="glass-card p-7">
+                        <h3 class="font-display text-lg font-bold mb-5 flex items-center gap-3">
+                            <i class="fas fa-code text-accent"></i> Programming Languages
+                        </h3>
+                        <div class="space-y-4">
+                            <div class="skill-item" data-percent="75">
+                                <div class="flex justify-between mb-1.5"><span class="text-sm font-medium">Python</span><span class="text-accent text-sm">75%</span></div>
+                                <div class="skill-bar-track"><div class="skill-bar-fill"></div></div>
+                            </div>
+                            <div class="skill-item" data-percent="65">
+                                <div class="flex justify-between mb-1.5"><span class="text-sm font-medium">C</span><span class="text-accent text-sm">65%</span></div>
+                                <div class="skill-bar-track"><div class="skill-bar-fill"></div></div>
+                            </div>
+                            <div class="skill-item" data-percent="55">
+                                <div class="flex justify-between mb-1.5"><span class="text-sm font-medium">C++</span><span class="text-accent text-sm">55%</span></div>
+                                <div class="skill-bar-track"><div class="skill-bar-fill"></div></div>
+                            </div>
+                            <div class="skill-item" data-percent="68">
+                                <div class="flex justify-between mb-1.5"><span class="text-sm font-medium">HTML / CSS</span><span class="text-accent text-sm">68%</span></div>
+                                <div class="skill-bar-track"><div class="skill-bar-fill"></div></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="glass-card p-7">
+                        <h3 class="font-display text-lg font-bold mb-5 flex items-center gap-3">
+                            <i class="fas fa-tools text-accent"></i> Software &amp; Tools
+                        </h3>
+                        <div class="space-y-4">
+                            <div class="skill-item" data-percent="85">
+                                <div class="flex justify-between mb-1.5"><span class="text-sm font-medium">VS Code</span><span class="text-accent text-sm">85%</span></div>
+                                <div class="skill-bar-track"><div class="skill-bar-fill"></div></div>
+                            </div>
+                            <div class="skill-item" data-percent="80">
+                                <div class="flex justify-between mb-1.5"><span class="text-sm font-medium">MS Office Suite</span><span class="text-accent text-sm">80%</span></div>
+                                <div class="skill-bar-track"><div class="skill-bar-fill"></div></div>
+                            </div>
+                            <div class="skill-item" data-percent="72">
+                                <div class="flex justify-between mb-1.5"><span class="text-sm font-medium">Git / GitHub</span><span class="text-accent text-sm">72%</span></div>
+                                <div class="skill-bar-track"><div class="skill-bar-fill"></div></div>
+                            </div>
+                            <div class="skill-item" data-percent="70">
+                                <div class="flex justify-between mb-1.5"><span class="text-sm font-medium">Photopea / Canva</span><span class="text-accent text-sm">70%</span></div>
+                                <div class="skill-bar-track"><div class="skill-bar-fill"></div></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="glass-card p-7">
+                        <h3 class="font-display text-lg font-bold mb-5 flex items-center gap-3">
+                            <i class="fas fa-rocket text-accent"></i> Technical Interests
+                        </h3>
+                        <div class="flex flex-wrap gap-2.5">
+                            <span class="px-4 py-2 rounded-lg bg-accent/8 border border-accent/15 text-sm text-fg/90">Artificial Intelligence</span>
+                            <span class="px-4 py-2 rounded-lg bg-accent/8 border border-accent/15 text-sm text-fg/90">Web Development</span>
+                            <span class="px-4 py-2 rounded-lg bg-accent/8 border border-accent/15 text-sm text-fg/90">Cybersecurity</span>
+                            <span class="px-4 py-2 rounded-lg bg-accent/8 border border-accent/15 text-sm text-fg/90">GIS Mapping</span>
+                            <span class="px-4 py-2 rounded-lg bg-accent/8 border border-accent/15 text-sm text-fg/90">Robotics</span>
+                            <span class="px-4 py-2 rounded-lg bg-accent/8 border border-accent/15 text-sm text-fg/90">Cloud Computing</span>
+                            <span class="px-4 py-2 rounded-lg bg-accent/8 border border-accent/15 text-sm text-fg/90">Machine Learning</span>
+                            <span class="px-4 py-2 rounded-lg bg-accent/8 border border-accent/15 text-sm text-fg/90">Linux / CLI</span>
+                        </div>
+                    </div>
+                    <div class="glass-card p-7">
+                        <h3 class="font-display text-lg font-bold mb-5 flex items-center gap-3">
+                            <i class="fas fa-users text-accent"></i> Soft Skills
+                        </h3>
+                        <div class="space-y-4">
+                            <div class="skill-item" data-percent="80">
+                                <div class="flex justify-between mb-1.5"><span class="text-sm font-medium">Leadership</span><span class="text-accent text-sm">80%</span></div>
+                                <div class="skill-bar-track"><div class="skill-bar-fill"></div></div>
+                            </div>
+                            <div class="skill-item" data-percent="85">
+                                <div class="flex justify-between mb-1.5"><span class="text-sm font-medium">Teamwork</span><span class="text-accent text-sm">85%</span></div>
+                                <div class="skill-bar-track"><div class="skill-bar-fill"></div></div>
+                            </div>
+                            <div class="skill-item" data-percent="75">
+                                <div class="flex justify-between mb-1.5"><span class="text-sm font-medium">Problem Solving</span><span class="text-accent text-sm">75%</span></div>
+                                <div class="skill-bar-track"><div class="skill-bar-fill"></div></div>
+                            </div>
+                            <div class="skill-item" data-percent="78">
+                                <div class="flex justify-between mb-1.5"><span class="text-sm font-medium">Communication</span><span class="text-accent text-sm">78%</span></div>
+                                <div class="skill-bar-track"><div class="skill-bar-fill"></div></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Experience & Projects -->
+        <section id="experience" class="cv-section py-24 px-6">
+            <div class="max-w-4xl mx-auto">
+                <p class="section-label">What I've Built</p>
+                <h2 class="section-title">Projects &amp; Experience</h2>
+                <div class="timeline">
+                    <div class="timeline-item">
+                        <div class="timeline-dot"></div>
+                        <div class="glass-card p-7">
+                            <div class="flex flex-wrap items-center gap-2.5 mb-3">
+                                <span class="text-accent text-xs font-semibold px-3 py-1 rounded-full bg-accent/10">2025</span>
+                                <span class="text-xs text-muted bg-white/5 px-3 py-1 rounded-full">Personal Project</span>
+                            </div>
+                            <h3 class="font-display text-lg font-bold mb-1">Personal Portfolio Website</h3>
+                            <p class="text-accent text-sm mb-2">sijanbastola.com.np</p>
+                            <p class="text-muted text-sm leading-relaxed">Designed and deployed a responsive personal portfolio website to showcase technical projects and coding journey. Used modern web deployment tools and hosting environments. The site has attracted over 350 unique visitors within the first two months of launch.</p>
+                        </div>
+                    </div>
+                    <div class="timeline-item">
+                        <div class="timeline-dot"></div>
+                        <div class="glass-card p-7">
+                            <div class="flex flex-wrap items-center gap-2.5 mb-3">
+                                <span class="text-accent text-xs font-semibold px-3 py-1 rounded-full bg-accent/10">2025</span>
+                                <span class="text-xs text-muted bg-white/5 px-3 py-1 rounded-full">Python / AI</span>
+                            </div>
+                            <h3 class="font-display text-lg font-bold mb-1">Python Text-Based Chatbot</h3>
+                            <p class="text-accent text-sm mb-2">Academic / Self-Initiated</p>
+                            <p class="text-muted text-sm leading-relaxed">Built a pattern-matching chatbot in Python capable of handling 50+ conversational intents. Implemented NLP basics using string matching and keyword extraction. Achieved approximately 82% response accuracy across 200 sample inputs.</p>
+                        </div>
+                    </div>
+                    <div class="timeline-item">
+                        <div class="timeline-dot"></div>
+                        <div class="glass-card p-7">
+                            <div class="flex flex-wrap items-center gap-2.5 mb-3">
+                                <span class="text-accent text-xs font-semibold px-3 py-1 rounded-full bg-accent/10">2025</span>
+                                <span class="text-xs text-muted bg-white/5 px-3 py-1 rounded-full">Community</span>
+                            </div>
+                            <h3 class="font-display text-lg font-bold mb-1">General Member — Code For Change Pokhara</h3>
+                            <p class="text-accent text-sm mb-2">2025 – 2026 Term</p>
+                            <p class="text-muted text-sm leading-relaxed">Selected as a General Member of Code For Change Pokhara, contributing to local tech community initiatives, coding workshops, peer-learning sessions, and community hackathons.</p>
+                        </div>
+                    </div>
+                    <div class="timeline-item">
+                        <div class="timeline-dot"></div>
+                        <div class="glass-card p-7">
+                            <div class="flex flex-wrap items-center gap-2.5 mb-3">
+                                <span class="text-accent text-xs font-semibold px-3 py-1 rounded-full bg-accent/10">2024</span>
+                                <span class="text-xs text-muted bg-white/5 px-3 py-1 rounded-full">C / Academic</span>
+                            </div>
+                            <h3 class="font-display text-lg font-bold mb-1">Student GPA Calculator</h3>
+                            <p class="text-accent text-sm mb-2">Class Project</p>
+                            <p class="text-muted text-sm leading-relaxed">Developed a C-based console application that calculates semester and cumulative GPA. Features include grade validation, semester-wise data storage, and formatted output reports. Helped 20+ classmates automate their GPA calculations.</p>
+                        </div>
+                    </div>
+                    <div class="timeline-item">
+                        <div class="timeline-dot"></div>
+                        <div class="glass-card p-7">
+                            <div class="flex flex-wrap items-center gap-2.5 mb-3">
+                                <span class="text-accent text-xs font-semibold px-3 py-1 rounded-full bg-accent/10">2021 – 2025</span>
+                                <span class="text-xs text-muted bg-white/5 px-3 py-1 rounded-full">Robotics</span>
+                            </div>
+                            <h3 class="font-display text-lg font-bold mb-1">Robotics Workshop — BCIC Program</h3>
+                            <p class="text-accent text-sm mb-2">Bhasker Memorial School</p>
+                            <p class="text-muted text-sm leading-relaxed">Participated in an introductory Robotics program under the BCIC initiative. Gained hands-on experience with basic sensor integration, motor control, and simple programming logic for robotic systems.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Education -->
+        <section id="education" class="cv-section py-24 px-6">
+            <div class="max-w-5xl mx-auto">
+                <p class="section-label">My Academic Background</p>
+                <h2 class="section-title">Education</h2>
+                <div class="grid md:grid-cols-2 gap-5">
+                    <div class="glass-card p-7">
+                        <div class="flex items-start justify-between mb-3">
+                            <div class="w-12 h-12 rounded-xl bg-accent/10 border border-accent/20 flex items-center justify-center text-accent text-lg flex-shrink-0">
+                                <i class="fas fa-graduation-cap"></i>
+                            </div>
+                            <span class="text-accent text-xs font-semibold px-3 py-1 rounded-full bg-accent/10">2025 – Present</span>
+                        </div>
+                        <h3 class="font-display text-lg font-bold mb-1">BSc CSIT</h3>
+                        <p class="text-muted text-sm mb-2">Soch College of IT, Tribhuvan University</p>
+                        <p class="text-muted text-xs leading-relaxed">Bachelor of Science in Computer Science and Information Technology. Focusing on programming fundamentals, data structures, mathematics for computing, and introductory AI courses.</p>
+                    </div>
+                    <div class="glass-card p-7">
+                        <div class="flex items-start justify-between mb-3">
+                            <div class="w-12 h-12 rounded-xl bg-accent/10 border border-accent/20 flex items-center justify-center text-accent text-lg flex-shrink-0">
+                                <i class="fas fa-book-open"></i>
+                            </div>
+                            <span class="text-accent text-xs font-semibold px-3 py-1 rounded-full bg-accent/10">2023 – 2025</span>
+                        </div>
+                        <h3 class="font-display text-lg font-bold mb-1">Secondary Level (+2 / Class 12)</h3>
+                        <p class="text-muted text-sm mb-2">Bhasker Memorial School, NEB</p>
+                        <p class="text-muted text-xs leading-relaxed">Completed higher secondary education under the National Examination Board. GPA: <span class="text-accent font-semibold">3.28 / 4.00</span></p>
+                    </div>
+                    <div class="glass-card p-7">
+                        <div class="flex items-start justify-between mb-3">
+                            <div class="w-12 h-12 rounded-xl bg-accent/10 border border-accent/20 flex items-center justify-center text-accent text-lg flex-shrink-0">
+                                <i class="fas fa-school"></i>
+                            </div>
+                            <span class="text-accent text-xs font-semibold px-3 py-1 rounded-full bg-accent/10">2021 – 2023</span>
+                        </div>
+                        <h3 class="font-display text-lg font-bold mb-1">SEE (Class 10)</h3>
+                        <p class="text-muted text-sm mb-2">Bhasker Memorial School</p>
+                        <p class="text-muted text-xs leading-relaxed">Secondary Education Examination. GPA: <span class="text-accent font-semibold">3.25 / 4.00</span></p>
+                    </div>
+                    <div class="glass-card p-7">
+                        <div class="flex items-start justify-between mb-3">
+                            <div class="w-12 h-12 rounded-xl bg-accent/10 border border-accent/20 flex items-center justify-center text-accent text-lg flex-shrink-0">
+                                <i class="fas fa-pen-fancy"></i>
+                            </div>
+                            <span class="text-accent text-xs font-semibold px-3 py-1 rounded-full bg-accent/10">2011 – 2021</span>
+                        </div>
+                        <h3 class="font-display text-lg font-bold mb-1">Basic Level (Grade 8)</h3>
+                        <p class="text-muted text-sm mb-2">Bhasker Memorial School</p>
+                        <p class="text-muted text-xs leading-relaxed">Completed basic level education. GPA: <span class="text-accent font-semibold">3.23 / 4.00</span>. Participated in introductory Robotics (BCIC) and technical skill workshops during this tenure.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Certificates -->
+        <section id="certificates" class="cv-section py-24 px-6">
+            <div class="max-w-6xl mx-auto">
+                <p class="section-label">My Achievements</p>
+                <h2 class="section-title">Certificates</h2>
+                <p class="text-muted max-w-xl mb-10 text-sm">Hover over each card to reveal details about the certification, issuing organization, and key takeaways.</p>
+                <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
+                    <div class="cert-card">
+                        <div class="cert-inner">
+                            <div class="cert-front">
+                                <div class="cert-icon"><i class="fas fa-shield-alt"></i></div>
+                                <h3 class="font-display text-base font-bold mb-2">Cyber Security Training</h3>
+                                <p class="text-muted text-sm">Kathford International College</p>
+                                <p class="text-accent/50 text-xs mt-4"><i class="fas fa-sync-alt mr-1"></i> Hover for details</p>
+                            </div>
+                            <div class="cert-back">
+                                <h3 class="font-display text-base font-bold mb-3">Cyber Security Training</h3>
+                                <p class="text-xs text-muted mb-1.5"><i class="fas fa-building mr-2 text-accent"></i>Kathford International College</p>
+                                <p class="text-xs text-muted mb-1.5"><i class="fas fa-calendar mr-2 text-accent"></i>Issued: 2025</p>
+                                <p class="text-xs text-muted mb-1.5"><i class="fas fa-tag mr-2 text-accent"></i>Specialized Program</p>
+                                <p class="text-xs text-muted leading-relaxed mt-2">Intensive training covering network security fundamentals, ethical hacking basics, vulnerability assessment, and security best practices. Gained practical exposure to tools like Wireshark and Nmap.</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="cert-card">
+                        <div class="cert-inner">
+                            <div class="cert-front">
+                                <div class="cert-icon"><i class="fas fa-brain"></i></div>
+                                <h3 class="font-display text-base font-bold mb-2">AI with Python Workshop</h3>
+                                <p class="text-muted text-sm">Mero Coding Class</p>
+                                <p class="text-accent/50 text-xs mt-4"><i class="fas fa-sync-alt mr-1"></i> Hover for details</p>
+                            </div>
+                            <div class="cert-back">
+                                <h3 class="font-display text-base font-bold mb-3">AI with Python Workshop</h3>
+                                <p class="text-xs text-muted mb-1.5"><i class="fas fa-building mr-2 text-accent"></i>Mero Coding Class</p>
+                                <p class="text-xs text-muted mb-1.5"><i class="fas fa-calendar mr-2 text-accent"></i>Issued: 2025</p>
+                                <p class="text-xs text-muted mb-1.5"><i class="fas fa-tag mr-2 text-accent"></i>Practical Training</p>
+                                <p class="text-xs text-muted leading-relaxed mt-2">Hands-on workshop covering Python for AI — including NumPy, Pandas, basic neural network concepts, and a mini machine learning project.</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="cert-card">
+                        <div class="cert-inner">
+                            <div class="cert-front">
+                                <div class="cert-icon"><i class="fas fa-search"></i></div>
+                                <h3 class="font-display text-base font-bold mb-2">SEO Kickstart</h3>
+                                <p class="text-muted text-sm">Industry Webinar</p>
+                                <p class="text-accent/50 text-xs mt-4"><i class="fas fa-sync-alt mr-1"></i> Hover for details</p>
+                            </div>
+                            <div class="cert-back">
+                                <h3 class="font-display text-base font-bold mb-3">SEO Kickstart</h3>
+                                <p class="text-xs text-muted mb-1.5"><i class="fas fa-building mr-2 text-accent"></i>Industry Webinar</p>
+                                <p class="text-xs text-muted mb-1.5"><i class="fas fa-calendar mr-2 text-accent"></i>Issued: 2025</p>
+                                <p class="text-xs text-muted mb-1.5"><i class="fas fa-tag mr-2 text-accent"></i>Digital Optimization</p>
+                                <p class="text-xs text-muted leading-relaxed mt-2">Attended an industry-standard webinar covering on-page SEO, keyword research strategies, technical SEO audits, and content optimization.</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="cert-card">
+                        <div class="cert-inner">
+                            <div class="cert-front">
+                                <div class="cert-icon"><i class="fas fa-lightbulb"></i></div>
+                                <h3 class="font-display text-base font-bold mb-2">ECAN Youth Summit</h3>
+                                <p class="text-muted text-sm">Ignite the Entrepreneurial Mindset</p>
+                                <p class="text-accent/50 text-xs mt-4"><i class="fas fa-sync-alt mr-1"></i> Hover for details</p>
+                            </div>
+                            <div class="cert-back">
+                                <h3 class="font-display text-base font-bold mb-3">ECAN Youth Summit</h3>
+                                <p class="text-xs text-muted mb-1.5"><i class="fas fa-building mr-2 text-accent"></i>ECAN Nepal</p>
+                                <p class="text-xs text-muted mb-1.5"><i class="fas fa-calendar mr-2 text-accent"></i>Issued: 2025</p>
+                                <p class="text-xs text-muted mb-1.5"><i class="fas fa-tag mr-2 text-accent"></i>Entrepreneurship</p>
+                                <p class="text-xs text-muted leading-relaxed mt-2">Participated in "Ignite the Entrepreneurial Mindset" — a summit focused on startup culture, business ideation, leadership, and innovation. Networked with 100+ young entrepreneurs.</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="cert-card">
+                        <div class="cert-inner">
+                            <div class="cert-front">
+                                <div class="cert-icon"><i class="fab fa-python"></i></div>
+                                <h3 class="font-display text-base font-bold mb-2">Python (Basic) Certificate</h3>
+                                <p class="text-muted text-sm">HackerRank</p>
+                                <p class="text-accent/50 text-xs mt-4"><i class="fas fa-sync-alt mr-1"></i> Hover for details</p>
+                            </div>
+                            <div class="cert-back">
+                                <h3 class="font-display text-base font-bold mb-3">Python (Basic) Certificate</h3>
+                                <p class="text-xs text-muted mb-1.5"><i class="fas fa-building mr-2 text-accent"></i>HackerRank</p>
+                                <p class="text-xs text-muted mb-1.5"><i class="fas fa-calendar mr-2 text-accent"></i>Issued: 2024</p>
+                                <p class="text-xs text-muted mb-1.5"><i class="fas fa-tag mr-2 text-accent"></i>Online Assessment</p>
+                                <p class="text-xs text-muted leading-relaxed mt-2">Cleared HackerRank's Python (Basic) certification, demonstrating proficiency in data types, loops, functions, string manipulation, lists, and basic problem-solving.</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="cert-card">
+                        <div class="cert-inner">
+                            <div class="cert-front">
+                                <div class="cert-icon"><i class="fas fa-graduation-cap"></i></div>
+                                <h3 class="font-display text-base font-bold mb-2">Learning How to Learn</h3>
+                                <p class="text-muted text-sm">Coursera — UC San Diego</p>
+                                <p class="text-accent/50 text-xs mt-4"><i class="fas fa-sync-alt mr-1"></i> Hover for details</p>
+                            </div>
+                            <div class="cert-back">
+                                <h3 class="font-display text-base font-bold mb-3">Learning How to Learn</h3>
+                                <p class="text-xs text-muted mb-1.5"><i class="fas fa-building mr-2 text-accent"></i>Coursera — UC San Diego</p>
+                                <p class="text-xs text-muted mb-1.5"><i class="fas fa-calendar mr-2 text-accent"></i>Issued: 2024</p>
+                                <p class="text-xs text-muted mb-1.5"><i class="fas fa-tag mr-2 text-accent"></i>Learning Science</p>
+                                <p class="text-xs text-muted leading-relaxed mt-2">Completed Dr. Barbara Oakley's renowned course on effective learning techniques — focused vs. diffuse thinking, spaced repetition, memory palaces, and overcoming procrastination.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Interests -->
+        <section id="interests" class="cv-section py-24 px-6">
+            <div class="max-w-5xl mx-auto">
+                <p class="section-label">Beyond The Code</p>
+                <h2 class="section-title">Interests &amp; Hobbies</h2>
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div class="interest-card">
+                        <div class="interest-icon"><i class="fas fa-music"></i></div>
+                        <h4 class="font-display text-sm font-bold mb-1.5">Music Production</h4>
+                        <p class="text-muted text-xs leading-relaxed">Enthusiast for 90s-style rap and boom-bap. Plays acoustic guitar and explores beat-making.</p>
+                    </div>
+                    <div class="interest-card">
+                        <div class="interest-icon"><i class="fas fa-microchip"></i></div>
+                        <h4 class="font-display text-sm font-bold mb-1.5">Hardware Maintenance</h4>
+                        <p class="text-muted text-xs leading-relaxed">Hands-on experience with RAM installation, SSD replacements, and basic troubleshooting.</p>
+                    </div>
+                    <div class="interest-card">
+                        <div class="interest-icon"><i class="fas fa-car"></i></div>
+                        <h4 class="font-display text-sm font-bold mb-1.5">Automotive Tech</h4>
+                        <p class="text-muted text-xs leading-relaxed">Following SUV and EV trends in the Nepali market. Passionate about future EV infrastructure.</p>
+                    </div>
+                    <div class="interest-card">
+                        <div class="interest-icon"><i class="fas fa-futbol"></i></div>
+                        <h4 class="font-display text-sm font-bold mb-1.5">European Football</h4>
+                        <p class="text-muted text-xs leading-relaxed">Avid follower of the UEFA Champions League. Love analyzing tactics and underdog stories.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Contact -->
+        <section id="contact" class="cv-section py-24 px-6">
+            <div class="max-w-5xl mx-auto">
+                <p class="section-label">Let's Connect</p>
+                <h2 class="section-title">Get In Touch</h2>
+                <div class="grid md:grid-cols-5 gap-7">
+                    <div class="md:col-span-3 glass-card p-7">
+                        <form id="contactForm" onsubmit="handleSubmit(event)">
+                            <div class="grid sm:grid-cols-2 gap-4 mb-4">
+                                <div>
+                                    <label class="block text-xs font-medium mb-1.5 text-muted">Your Name</label>
+                                    <input type="text" class="form-input" placeholder="Your full name" required aria-label="Your name">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-medium mb-1.5 text-muted">Your Email</label>
+                                    <input type="email" class="form-input" placeholder="you@example.com" required aria-label="Your email">
+                                </div>
+                            </div>
+                            <div class="mb-4">
+                                <label class="block text-xs font-medium mb-1.5 text-muted">Subject</label>
+                                <input type="text" class="form-input" placeholder="Project idea, collaboration, etc." required aria-label="Subject">
+                            </div>
+                            <div class="mb-5">
+                                <label class="block text-xs font-medium mb-1.5 text-muted">Message</label>
+                                <textarea class="form-input" rows="5" placeholder="Write your message here..." required aria-label="Message"></textarea>
+                            </div>
+                            <button type="submit" class="btn-primary w-full justify-center"><i class="fas fa-paper-plane"></i> Send Message</button>
+                        </form>
+                    </div>
+                    <div class="md:col-span-2 space-y-4">
+                        <a href="mailto:sijanbaastola5@gmail.com" class="glass-card p-5 flex items-center gap-4 block no-underline">
+                            <div class="w-11 h-11 rounded-xl bg-accent/10 border border-accent/20 flex items-center justify-center text-accent flex-shrink-0">
+                                <i class="fas fa-envelope"></i>
+                            </div>
+                            <div>
+                                <p class="text-xs text-muted mb-0.5">Email</p>
+                                <p class="text-sm font-medium text-fg">sijanbaastola5@gmail.com</p>
+                            </div>
+                        </a>
+                        <a href="tel:+9779765936742" class="glass-card p-5 flex items-center gap-4 block no-underline">
+                            <div class="w-11 h-11 rounded-xl bg-accent/10 border border-accent/20 flex items-center justify-center text-accent flex-shrink-0">
+                                <i class="fas fa-phone"></i>
+                            </div>
+                            <div>
+                                <p class="text-xs text-muted mb-0.5">Phone</p>
+                                <p class="text-sm font-medium text-fg">+977-9765936742</p>
+                            </div>
+                        </a>
+                        <div class="glass-card p-5 flex items-center gap-4">
+                            <div class="w-11 h-11 rounded-xl bg-accent/10 border border-accent/20 flex items-center justify-center text-accent flex-shrink-0">
+                                <i class="fas fa-map-marker-alt"></i>
+                            </div>
+                            <div>
+                                <p class="text-xs text-muted mb-0.5">Location</p>
+                                <p class="text-sm font-medium">Pokhara, Nepal</p>
+                            </div>
+                        </div>
+                        <div class="glass-card p-5">
+                            <p class="text-sm font-medium mb-3">Connect With Me</p>
+                            <div class="flex gap-2.5">
+                                <a href="https://linkedin.com/in/sijan-bastola" target="_blank" class="w-10 h-10 rounded-lg bg-accent/10 border border-accent/20 flex items-center justify-center text-accent hover:bg-accent/20 transition-colors" aria-label="LinkedIn"><i class="fab fa-linkedin-in"></i></a>
+                                <a href="https://github.com/Sijan025" target="_blank" class="w-10 h-10 rounded-lg bg-accent/10 border border-accent/20 flex items-center justify-center text-accent hover:bg-accent/20 transition-colors" aria-label="GitHub"><i class="fab fa-github"></i></a>
+                                <a href="https://sijanbastola.com.np" target="_blank" class="w-10 h-10 rounded-lg bg-accent/10 border border-accent/20 flex items-center justify-center text-accent hover:bg-accent/20 transition-colors" aria-label="Website"><i class="fas fa-globe"></i></a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <footer class="relative z-10 border-t border-white/5 py-7 px-6 text-center">
+        <p class="text-muted text-xs">&copy; 2025 Sijan Bastola. Built with passion and Three.js.</p>
+    </footer>
+
+    <!-- Three.js + Custom Cursor -->
+    <script type="module">
+        import * as THREE from 'three';
+
+        /* ========== CUSTOM CURSOR ========== */
+        const isTouchDevice = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+
+        if (!isTouchDevice) {
+            document.body.classList.add('custom-cursor-active');
+
+            // Main cursor dot
+            const cursorEl = document.createElement('div');
+            cursorEl.className = 'cursor-dot';
+            document.body.appendChild(cursorEl);
+
+            // Outer glow ring
+            const ringEl = document.createElement('div');
+            ringEl.style.cssText = `
+                position:fixed; z-index:10000;
+                width:36px; height:36px;
+                border:1.5px solid rgba(59,130,246,0.3);
+                border-radius:50%;
+                pointer-events:none;
+                transform:translate(-50%,-50%);
+                transition: width 0.35s ease, height 0.35s ease, border-color 0.35s ease, opacity 0.35s ease;
+                will-change: left, top;
+            `;
+            document.body.appendChild(ringEl);
+
+            let cx = -100, cy = -100, rx = -100, ry = -100;
+            let tx = -100, ty = -100;
+            let isHovering = false;
+
+            document.addEventListener('mousemove', (e) => {
+                tx = e.clientX;
+                ty = e.clientY;
+                spawnTrail(e.clientX, e.clientY);
+            });
+
+            // Click shrink effect
+            document.addEventListener('mousedown', () => cursorEl.classList.add('clicking'));
+            document.addEventListener('mouseup', () => cursorEl.classList.remove('clicking'));
+
+            // Hover detection on interactive elements
+            const hoverSelectors = 'a, button, .cert-card, .glass-card, .interest-card, input, textarea, [role="button"]';
+
+            document.addEventListener('mouseover', (e) => {
+                if (e.target.closest(hoverSelectors)) {
+                    isHovering = true;
+                    cursorEl.classList.add('hovering');
+                    ringEl.style.width = '50px';
+                    ringEl.style.height = '50px';
+                    ringEl.style.borderColor = 'rgba(59,130,246,0.5)';
+                }
+            });
+            document.addEventListener('mouseout', (e) => {
+                if (e.target.closest(hoverSelectors)) {
+                    isHovering = false;
+                    cursorEl.classList.remove('hovering');
+                    ringEl.style.width = '36px';
+                    ringEl.style.height = '36px';
+                    ringEl.style.borderColor = 'rgba(59,130,246,0.3)';
+                }
+            });
+
+            // Trail spawning — throttled for performance
+            let lastTrailTime = 0;
+            const trailInterval = 35; // ms between dots
+            const maxTrailDots = 40; // max alive dots at once
+            let activeTrailDots = 0;
+
+            function spawnTrail(x, y) {
+                const now = performance.now();
+                if (now - lastTrailTime < trailInterval) return;
+                if (activeTrailDots >= maxTrailDots) return;
+                lastTrailTime = now;
+
+                const dot = document.createElement('div');
+                dot.className = 'trail-dot';
+
+                // Slightly randomize size for organic feel
+                const size = 4 + Math.random() * 3;
+                dot.style.width = size + 'px';
+                dot.style.height = size + 'px';
+                dot.style.left = x + 'px';
+                dot.style.top = y + 'px';
+                // Slight opacity variation
+                dot.style.opacity = 0.35 + Math.random() * 0.2;
+                document.body.appendChild(dot);
+                activeTrailDots++;
+
+                setTimeout(() => {
+                    dot.remove();
+                    activeTrailDots--;
+                }, 1000);
+            }
+
+            // Smooth cursor follow loop
+            function updateCursor() {
+                // Inner dot follows tightly
+                cx += (tx - cx) * 0.18;
+                cy += (ty - cy) * 0.18;
+                cursorEl.style.left = cx + 'px';
+                cursorEl.style.top = cy + 'px';
+
+                // Outer ring follows with more lag
+                rx += (tx - rx) * 0.08;
+                ry += (ty - ry) * 0.08;
+                ringEl.style.left = rx + 'px';
+                ringEl.style.top = ry + 'px';
+
+                requestAnimationFrame(updateCursor);
+            }
+            updateCursor();
+
+            // Hide cursor when it leaves the window
+            document.addEventListener('mouseleave', () => {
+                cursorEl.style.opacity = '0';
+                ringEl.style.opacity = '0';
+            });
+            document.addEventListener('mouseenter', () => {
+                cursorEl.style.opacity = '1';
+                ringEl.style.opacity = '1';
+            });
+        }
+
+        /* ========== THREE.JS SCENE ========== */
+        const container = document.getElementById('three-canvas');
+        const scene = new THREE.Scene();
+        scene.fog = new THREE.FogExp2(0x070a0e, 0.0006);
+
+        const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 1, 5000);
+        camera.position.z = 800;
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        container.appendChild(renderer.domElement);
+
+        // Particle texture
+        const pCanvas = document.createElement('canvas');
+        pCanvas.width = 64; pCanvas.height = 64;
+        const pCtx = pCanvas.getContext('2d');
+        const grad = pCtx.createRadialGradient(32, 32, 0, 32, 32, 32);
+        grad.addColorStop(0, 'rgba(34,197,94,1.0)');
+        grad.addColorStop(0.35, 'rgba(34,197,94,0.35)');
+        grad.addColorStop(1, 'rgba(34,197,94,0.0)');
+        pCtx.fillStyle = grad;
+        pCtx.fillRect(0, 0, 64, 64);
+        const particleTexture = new THREE.CanvasTexture(pCanvas);
+
+        // Particles
+        const pCount = 1000;
+        const pPos = new Float32Array(pCount * 3);
+        for (let i = 0; i < pCount * 3; i++) pPos[i] = (Math.random() - 0.5) * 3000;
+        const pGeom = new THREE.BufferGeometry();
+        pGeom.setAttribute('position', new THREE.BufferAttribute(pPos, 3));
+        const pMat = new THREE.PointsMaterial({
+            size: 3.5, map: particleTexture, transparent: true,
+            blending: THREE.AdditiveBlending, depthWrite: false,
+        });
+        const particles = new THREE.Points(pGeom, pMat);
+        scene.add(particles);
+
+        // Wireframe shapes
+        const eps = 0.01;
+        const shapes = [];
+        const mat1 = new THREE.MeshBasicMaterial({ color: 0x22c55e, wireframe: true, transparent: true, opacity: 0.2 });
+        const mat2 = new THREE.MeshBasicMaterial({ color: 0x4ade80, wireframe: true, transparent: true, opacity: 0.14 });
+
+        const ico = new THREE.Mesh(new THREE.IcosahedronGeometry(Math.max(eps, 85), 1), mat1);
+        ico.position.set(-320, 100, -200); scene.add(ico); shapes.push(ico);
+
+        const torus = new THREE.Mesh(new THREE.TorusGeometry(Math.max(eps, 60), Math.max(eps, 20), 16, 50), mat2);
+        torus.position.set(350, -80, -120); scene.add(torus); shapes.push(torus);
+
+        const oct = new THREE.Mesh(new THREE.OctahedronGeometry(Math.max(eps, 50), 0), mat1);
+        oct.position.set(80, 260, -300); scene.add(oct); shapes.push(oct);
+
+        const dod = new THREE.Mesh(new THREE.DodecahedronGeometry(Math.max(eps, 40), 0), mat2);
+        dod.position.set(-200, -220, -180); scene.add(dod); shapes.push(dod);
+
+        const ring = new THREE.Mesh(new THREE.TorusGeometry(Math.max(eps, 90), Math.max(eps, 2.5), 8, 70), mat1.clone());
+        ring.material.opacity = 0.1;
+        ring.position.set(180, 180, -380); ring.rotation.x = Math.PI * 0.35;
+        scene.add(ring); shapes.push(ring);
+
+        const tet = new THREE.Mesh(new THREE.TetrahedronGeometry(Math.max(eps, 35), 0), mat2.clone());
+        tet.material.opacity = 0.18;
+        tet.position.set(-380, -50, -280); scene.add(tet); shapes.push(tet);
+
+        // Mouse tracking for 3D scene
+        let mouseX = 0, mouseY = 0, tMX = 0, tMY = 0;
+        document.addEventListener('mousemove', (e) => {
+            tMX = (e.clientX / window.innerWidth - 0.5) * 2;
+            tMY = (e.clientY / window.innerHeight - 0.5) * 2;
+        });
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        const clock = new THREE.Clock();
+        function animate() {
+            requestAnimationFrame(animate);
+            const t = clock.getElapsedTime();
+            mouseX += (tMX - mouseX) * 0.04;
+            mouseY += (tMY - mouseY) * 0.04;
+            const scrollY = window.scrollY;
+            const maxScroll = document.body.scrollHeight - window.innerHeight;
+            const sp = maxScroll > 0 ? scrollY / maxScroll : 0;
+
+            camera.position.x = mouseX * 55;
+            camera.position.y = -mouseY * 35 - sp * 280;
+            camera.lookAt(0, -sp * 280, 0);
+
+            shapes.forEach((s, i) => {
+                s.rotation.x += 0.0012 * (i + 1);
+                s.rotation.y += 0.0018 * (i + 1);
+                s.position.y += Math.sin(t * 0.4 + i * 1.3) * 0.35;
+            });
+
+            particles.rotation.y += 0.0002;
+            particles.rotation.x += 0.00008;
+            renderer.render(scene, camera);
+        }
+        animate();
+
+        /* ========== UI LOGIC ========== */
+        window.addEventListener('load', () => {
+            setTimeout(() => document.getElementById('loader').classList.add('hidden'), 500);
+        });
+
+        window.addEventListener('scroll', () => {
+            const ms = document.body.scrollHeight - window.innerHeight;
+            document.getElementById('scroll-progress').style.width = (ms > 0 ? (window.scrollY / ms) * 100 : 0) + '%';
+        });
+
+        let lastSY = 0;
+        window.addEventListener('scroll', () => {
+            const nav = document.getElementById('nav');
+            if (window.scrollY > lastSY && window.scrollY > 80) nav.classList.add('nav-hidden');
+            else nav.classList.remove('nav-hidden');
+            lastSY = window.scrollY;
+        });
+
+        // Section entrance
+        const secObs = new IntersectionObserver((entries) => {
+            entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('visible'); });
+        }, { threshold: 0.08, rootMargin: '0px 0px -50px 0px' });
+        document.querySelectorAll('.cv-section').forEach(s => secObs.observe(s));
+
+        // Skill bars
+        const skObs = new IntersectionObserver((entries) => {
+            entries.forEach(e => {
+                if (e.isIntersecting) {
+                    const f = e.target.querySelector('.skill-bar-fill');
+                    if (f) f.style.width = e.target.getAttribute('data-percent') + '%';
+                    skObs.unobserve(e.target);
+                }
+            });
+        }, { threshold: 0.25 });
+        document.querySelectorAll('.skill-item').forEach(s => skObs.observe(s));
+
+        // Stat counters
+        const stObs = new IntersectionObserver((entries) => {
+            entries.forEach(e => {
+                if (e.isIntersecting) {
+                    const el = e.target, target = parseInt(el.getAttribute('data-count'));
+                    let cur = 0;
+                    const step = Math.max(1, Math.ceil(target / 30));
+                    const iv = setInterval(() => {
+                        cur += step;
+                        if (cur >= target) { cur = target; clearInterval(iv); }
+                        el.textContent = cur + '+';
+                    }, 50);
+                    stObs.unobserve(el);
+                }
+            });
+        }, { threshold: 0.5 });
+        document.querySelectorAll('.stat-number[data-count]').forEach(s => stObs.observe(s));
+
+        // Active nav link
+        const navLinks = document.querySelectorAll('.nav-link');
+        window.addEventListener('scroll', () => {
+            let cur = '';
+            document.querySelectorAll('section[id]').forEach(sec => {
+                if (window.scrollY >= sec.offsetTop - 180) cur = sec.id;
+            });
+            navLinks.forEach(l => {
+                l.classList.toggle('active', l.getAttribute('href') === '#' + cur);
+            });
+        });
+
+        // Toast
+        window.showToast = function(msg, type = 'success') {
+            const t = document.createElement('div');
+            t.className = 'toast toast-' + type;
+            t.innerHTML = '<i class="fas fa-' + (type === 'success' ? 'check-circle text-accent' : 'info-circle text-accent-glow') + ' mr-2"></i>' + msg;
+            document.body.appendChild(t);
+            requestAnimationFrame(() => t.classList.add('show'));
+            setTimeout(() => { t.classList.remove('show'); setTimeout(() => t.remove(), 400); }, 3000);
+        };
+
+        // Form
+        window.handleSubmit = function(e) {
+            e.preventDefault();
+            const inputs = e.target.querySelectorAll('input, textarea');
+            let ok = true;
+            inputs.forEach(i => { if (!i.value.trim()) ok = false; });
+            if (ok) {
+                showToast('Message sent successfully! I\'ll reply soon.', 'success');
+                e.target.reset();
+            } else {
+                showToast('Please fill in all fields.', 'info');
+            }
+        };
+
+        // Mobile menu
+        window.toggleMobile = function() {
+            const m = document.getElementById('mobileMenu'), i = document.getElementById('menuIcon');
+            m.classList.toggle('open');
+            i.className = m.classList.contains('open') ? 'fas fa-times' : 'fas fa-bars';
+        };
+        window.closeMobile = function() {
+            document.getElementById('mobileMenu').classList.remove('open');
+            document.getElementById('menuIcon').className = 'fas fa-bars';
+        };
+    </script>
+
+</body>
+</html>
